@@ -98,7 +98,7 @@ def main_callback(df, filename, ecosystem, select_condition):
     df_plot = chart(df)
 
     # ------- processing of 'summary' tab -------
-    summary_main, summary_bank, byhours = summary(df)
+    summary_main, summary_api, byhours = summary(df)
 
     data = html.Div([
         html.Hr() if select_condition else html.H6(filename),
@@ -145,19 +145,15 @@ def main_callback(df, filename, ecosystem, select_condition):
         html.Div([
             html.Div([
                 dcc.Dropdown(
-                    id='bank-name',
-                    options=[
-
-                    ],
+                    id='name',
+                    options=[],
                     value='NYC'
                 ),
             ], className='two columns'),
             html.Div([
                 dcc.Dropdown(
                     id='dropdown2',
-                    options=[
-
-                    ],
+                    options=[],
                     value='NYC'
                 ),
             ], className='two columns'),
@@ -204,8 +200,8 @@ def main_callback(df, filename, ecosystem, select_condition):
             html.Div([
                 html.Hr(),
                 dash_table.DataTable(
-                    data=summary_bank.to_dict('rows'),
-                    columns=[{'name': i, 'id': i} for i in summary_bank.columns],
+                    data=summary_api.to_dict('rows'),
+                    columns=[{'name': i, 'id': i} for i in summary_api.columns],
                     style_data_conditional=[
                         {
                             'if': {'column_id':
@@ -267,16 +263,14 @@ def select_from_db(query):
             host='127.0.0.1', port=tunnel.local_bind_port,
             database='apihub$sessions'
         )
-        # print(mydb)
         mycursor = mydb.cursor()
         myquery = str(query)
         mycursor.execute(myquery)
         myresult = mycursor.fetchall()
-        # mycursor.close()  # not necessary here
         mydb.close()
         mydata = pd.DataFrame(myresult)
-        colnames = ['requestdate', 'externaluserid', 'count_useraccounts_in_bank', 'SessionStatus', 'Stage',
-                    'SessionSource', 'failuremessageid', 'accountsfetchedcount', 'accountsprocessedcount', 'BankName',
+        colnames = ['requestdate', 'externaluserid', 'count_useraccounts', 'SessionStatus', 'Stage',
+                    'SessionSource', 'failuremessageid', 'accountsfetchedcount', 'accountsprocessedcount', 'Name',
                     'AspspResponseContent', 'AspspResponseStatus', 'ConsentId', 'ErrorMessage', 'ErrorType',
                     'ExecutionId', 'TransactionStatus', 'TransactionStatusTimestamp', 'Id', 'unique_id', 'ecosystem']
         mydata.columns = colnames
@@ -306,8 +300,8 @@ def insert_to_db(df):
         df = df.fillna('')  # need it to "counter" NaN values in 'failuremessageid'
         input_df = [tuple(x) for x in df.values]
         sql_query = 'INSERT IGNORE INTO report ' \
-                    '(requestdate, externaluserid, count_useraccounts_in_bank, SessionStatus, Stage, SessionSource,' \
-                    'failuremessageid, accountsfetchedcount, accountsprocessedcount, BankName,' \
+                    '(requestdate, externaluserid, count_useraccounts, SessionStatus, Stage, SessionSource,' \
+                    'failuremessageid, accountsfetchedcount, accountsprocessedcount, Name,' \
                     'AspspResponseContent, AspspResponseStatus, ConsentId, ErrorMessage, ErrorType, ExecutionId,' \
                     'TransactionStatus, TransactionStatusTimestamp, Id, unique_id, ecosystem)' \
                     'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,' \
@@ -355,7 +349,7 @@ def report(df):
 
 
 def chart(df):
-    df_plot = df[['Time', 'BankName', 'SessionStatus', 'Stage', 'SessionSource', 'authorize_all', 'batch_all',
+    df_plot = df[['Time', 'Name', 'SessionStatus', 'Stage', 'SessionSource', 'authorize_all', 'batch_all',
                   'RefreshActiveAccounts', 'DeleteConsent']]
     df_plot = df_plot.sort_values(by=['Time'], ascending=False).reset_index(drop=True)
     return df_plot
@@ -388,7 +382,7 @@ def summary(df):
 
     summary_main = pd.DataFrame({'': summary_main.index, 'Total': summary_main.Total})
 
-    aggregations_bank = {
+    aggregations = {
         'refresh_OK': sum,
         'refresh_NOK': sum,
         'batch_OK': sum,
@@ -402,16 +396,16 @@ def summary(df):
         'SCA_all': sum,
         'TrxDetails_NOK': sum
     }
-    summary_bank = df.groupby('BankName').agg(aggregations_bank)
-    summary_bank['batch_%_NOK'] = np.where(summary_bank.batch_all > 0, round(
-        ((summary_bank.batch_NOK_accounts + summary_bank.batch_NOK_trx) / summary_bank.batch_all) * 100, 1), 'n/a')
-    summary_bank['unfinished_SCA_%'] = np.where(summary_bank.SCA_all > 0,
-                                                round((summary_bank.unfinished_SCA / summary_bank.SCA_all) * 100,
-                                                      1), 'n/a')
-    summary_bank.loc['Total'] = summary_bank.sum()
-    summary_bank['bank'] = summary_bank.index
-    summary_bank = summary_bank.iloc[:, list(range(-1, 14))].reset_index(drop=True)
-    summary_bank.at[len(summary_bank) - 1, ['batch_%_NOK', 'unfinished_SCA_%']] = ''
+    summary_api = df.groupby('Name').agg(aggregations)
+    summary_api['batch_%_NOK'] = np.where(summary_api.batch_all > 0, round(
+        ((summary_api.batch_NOK_accounts + summary_api.batch_NOK_trx) / summary_api.batch_all) * 100, 1), 'n/a')
+    summary_api['unfinished_SCA_%'] = np.where(summary_api.SCA_all > 0,
+                                               round((summary_api.unfinished_SCA / summary_api.SCA_all) * 100,
+                                                     1), 'n/a')
+    summary_api.loc['Total'] = summary_api.sum()
+    summary_api['Name'] = summary_api.index
+    summary_api = summary_api.iloc[:, list(range(-1, 14))].reset_index(drop=True)
+    summary_api.at[len(summary_api) - 1, ['batch_%_NOK', 'unfinished_SCA_%']] = ''
 
     byhours = df.copy()
 
@@ -425,17 +419,17 @@ def summary(df):
         'batch_6_PM_all': sum,
         'batch_6_PM_NOK': sum,
     }
-    byhours = byhours.groupby('BankName').agg(aggregations_hours)
+    byhours = byhours.groupby('Name').agg(aggregations_hours)
     byhours.loc['Total'] = byhours.sum()  # add total row
     byhours['batch_12_AM_%'] = round(byhours['batch_12_AM_NOK'] / byhours['batch_12_AM_all'], 2)
     byhours['batch_6_AM_%'] = round(byhours['batch_6_AM_NOK'] / byhours['batch_6_AM_all'], 2)
     byhours['batch_12_PM_%'] = round(byhours['batch_12_PM_NOK'] / byhours['batch_12_PM_all'], 2)
     byhours['batch_6_PM_%'] = round(byhours['batch_6_PM_NOK'] / byhours['batch_6_PM_all'], 2)
-    byhours['bank'] = byhours.index
+    byhours['name'] = byhours.index
     byhours = \
-        byhours[['bank', 'batch_12_AM_all', 'batch_12_AM_NOK', 'batch_12_AM_%', 'batch_6_AM_all',
+        byhours[['name', 'batch_12_AM_all', 'batch_12_AM_NOK', 'batch_12_AM_%', 'batch_6_AM_all',
                  'batch_6_AM_NOK', 'batch_6_AM_%', 'batch_12_PM_all', 'batch_12_PM_NOK', 'batch_12_PM_%',
                  'batch_6_PM_all', 'batch_6_PM_NOK', 'batch_6_PM_%']].reset_index(drop=True)
     byhours.at[len(byhours) - 1, ['batch_12_AM_%', 'batch_6_AM_%', 'batch_12_PM_%', 'batch_6_PM_%']] = ''
 
-    return summary_main, summary_bank, byhours
+    return summary_main, summary_api, byhours

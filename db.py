@@ -53,14 +53,14 @@ class Database:
             mycursor.execute('CREATE TABLE report ('
                              'requestdate DATETIME,'
                              'externaluserid VARCHAR(60),'  # NVARCHAR(N)
-                             'count_useraccounts_in_bank INT,'
+                             'count_useraccounts INT,'
                              'SessionStatus VARCHAR(30),'
                              'Stage VARCHAR(30),'
                              'SessionSource VARCHAR(30),'
                              'failuremessageid VARCHAR(60),'
                              'accountsfetchedcount INT,'
                              'accountsprocessedcount INT,'
-                             'BankName VARCHAR(60),'
+                             'Name VARCHAR(60),'
                              'AspspResponseContent VARCHAR(360),'
                              'AspspResponseStatus VARCHAR(30),'
                              'ConsentId VARCHAR(60),'
@@ -84,5 +84,5 @@ class Database:
 db = Database()
 print(db.SSH_HOSTNAME)
 print(db.database_name)
-# db.connect_db()
-db.create_db()  # works
+db.connect_db()
+db.create_db()
